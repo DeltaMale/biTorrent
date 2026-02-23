@@ -1,0 +1,28 @@
+{% extends "index.html" %}
+
+{% block content %}
+
+<table class="table table-striped table-hover">
+    <thead>
+        <tr>
+        <th scope="col">Name</th>
+        <th scope="col">Date</th>
+        <th scope="col">Size</th>
+        <th scope="col"># of Downloads</th>
+        </tr>
+    </thead>
+    <tbody>
+
+        {% for upload in uploads %}
+            <tr>
+                <td>{{ upload.name }}</td>
+                <td>{{ upload.date }}</td>
+                <td>{{ upload.size }}</td>
+                <td>{{ upload.number_of_downloads }}</td>
+            </tr>
+        {% endfor %}
+        
+    </tbody>
+</table>
+
+{% endblock content %}
