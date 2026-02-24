@@ -11,6 +11,7 @@ class Base(DeclarativeBase):
 
 db = SQLAlchemy(model_class=Base)
 app = Flask(__name__)
+app.config["SECRET_KEY"] = "b4e56ytnbry456yurtjet7i"
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///asd.db"
 db.init_app(app)
 
@@ -38,7 +39,12 @@ def home_page():
 
 @app.route("/account")
 def account():
-    return render_template("index.html", title="Account")
+    return render_template(
+        "account.html",
+        title="Account",
+        username=accounts[-1]["username"],
+        password=accounts[-1]["password"],
+    )
 
 
 @app.route("/downloads")
@@ -55,12 +61,21 @@ def upload():
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
+    form = NewCourseForm()
     if request.method == "POST":
-        username = request.form.get("username")
-        password = request.form.get("password")
-        accounts.append({"username": username, "password": password})
-        return redirect(url_for("home"))
-    return render_template("register.html", title="Register")
+        if form.validate_on_submit():
+            accounts.append(
+                {"username": form.username.data, "password": form.password.data}
+            )
+            flash("You are now registered!", "success")
+            return redirect(url_for("account"))
+    return render_template(
+        "register.html",
+        title="Register",
+        form=form,
+        username=form.username.data,
+        password=form.password.data,
+    )
 
 
 @app.route("/login", methods=["GET", "POST"])
