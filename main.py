@@ -9,8 +9,6 @@ class Base(DeclarativeBase):
     pass
 
 
-print("dih")
-print("asd")
 db = SQLAlchemy(model_class=Base)
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "b4e56ytnbry456yurtjet7i"
