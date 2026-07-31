@@ -1,0 +1,30 @@
+{% extends "index.html" %}
+
+{% block content %}
+<h2 class="my-4">Magnet Link Copied!</h2>
+
+<div class="card mb-4" style="background: rgba(255,255,255,0.1); border: none;">
+    <div class="card-body">
+        <h5>{{ magnet.title }}</h5>
+        <p class="text-break" style="word-break: break-all; background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; font-family: monospace; font-size: 0.85em;">
+            {{ magnet.magnet_uri }}
+        </p>
+        <button class="btn btn-light" onclick="navigator.clipboard.writeText('{{ magnet.magnet_uri }}'); this.textContent='Copied!'">Copy to Clipboard</button>
+        <a class="btn" href="{{ url_for('download') }}">Back to Downloads</a>
+    </div>
+</div>
+
+<script>
+// Fallback for clipboard API
+function fallbackCopy(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+}
+</script>
+{% endblock content %}

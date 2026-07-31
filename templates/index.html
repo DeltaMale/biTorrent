@@ -10,7 +10,7 @@
       integrity="sha384-GLhlTQ8iRABdZLl6O3oVMWSktQOp6b7In1Zl3/Jr59b6EGGoI1aFkw7cmDA6j6gD"
       crossorigin="anonymous"
     />
-    <link rel="stylesheet" href="./../static/style.css" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
 </head>
 <body>
     <div class="container container-navbar">
@@ -20,28 +20,33 @@
             <div class="collapse navbar-collapse" id="navbarSupportedContent">
             <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                 <li class="nav-item">
-                <a class="nav-link active" aria-current="page" href="{{ url_for("home") }}">Home</a>
+                <a class="nav-link" href="{{ url_for('home') }}">Home</a>
                 </li>
-
                 <li class="nav-item">
-                <a class="nav-link" href="{{ url_for("account") }}">Account</a>
+                <a class="nav-link" href="{{ url_for('account') }}">Account</a>
                 </li>
-
                 <li class="nav-item">
-                <a class="nav-link active" aria-current="page" href="{{ url_for("download") }}">Downloads</a>
+                <a class="nav-link" href="{{ url_for('download') }}">Downloads</a>
                 </li>
-
                 <li class="nav-item">
-                <a class="nav-link active" aria-current="page" href="{{ url_for("upload") }}">Uploads</a>
+                <a class="nav-link" href="{{ url_for('upload') }}">Upload</a>
                 </li>
-
+                <li class="nav-item">
+                <a class="nav-link" href="{{ url_for('my_uploads') }}">My Uploads</a>
+                </li>
             </ul>
-            <input class="form-control me-2" type="search" placeholder="Search" aria-label="Search"/>
-            <form class="d-flex">
-                <a class="btn btn-light" type="button" href="{{ url_for("register") }}">Register</a>
-                
-                <a class="btn" type="button" href="{{ url_for("login") }}">Log In</a>
+            <form class="d-flex" action="{{ url_for('download') }}" method="GET">
+                <input class="form-control me-2" type="search" name="q" placeholder="Search magnets..." value="{{ search if search else '' }}" aria-label="Search"/>
+                <button class="btn btn-light" type="submit">Search</button>
             </form>
+            <div class="d-flex">
+                {% if session.get('user_id') %}
+                <a class="btn btn-light" href="{{ url_for('logout') }}">Log Out</a>
+                {% else %}
+                <a class="btn btn-light" href="{{ url_for('register') }}">Register</a>
+                <a class="btn" href="{{ url_for('login') }}">Log In</a>
+                {% endif %}
+            </div>
             </div>
         </div>
         </nav>

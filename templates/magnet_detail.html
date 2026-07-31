@@ -1,0 +1,25 @@
+{% extends "index.html" %}
+
+{% block content %}
+<h2 class="my-4">{{ magnet.title }}</h2>
+
+<div class="card mb-4" style="background: rgba(255,255,255,0.1); border: none;">
+    <div class="card-body">
+        <table class="table" style="color: white;">
+            <tr><th style="width: 150px;">Size</th><td>{{ magnet.file_size }}</td></tr>
+            <tr><th>Uploaded by</th><td>{{ magnet.uploader.username }}</td></tr>
+            <tr><th>Downloads</th><td>{{ magnet.download_count }}</td></tr>
+        </table>
+
+        {% if magnet.description %}
+        <h5>Description</h5>
+        <p>{{ magnet.description }}</p>
+        {% endif %}
+
+        <div class="mt-3">
+            <a class="btn btn-light" href="{{ url_for('magnet_copy', magnet_id=magnet.id) }}">Copy Magnet Link</a>
+            <a class="btn" href="{{ url_for('download') }}">Back to Downloads</a>
+        </div>
+    </div>
+</div>
+{% endblock content %}

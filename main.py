@@ -1,9 +1,9 @@
-from flask import Flask, redirect, url_for, render_template, request, flash, session
-from data import downloads, uploads, accounts
+from flask import Flask, redirect, url_for, render_template, request, flash, session, Response
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
-from sqlalchemy import Integer, String
-from forms import NewCourseForm
+from sqlalchemy import Integer, String, Text, DateTime, func
+from forms import NewCourseForm, MagnetForm
+from werkzeug.security import generate_password_hash, check_password_hash
 
 
 class Base(DeclarativeBase):
@@ -13,20 +13,47 @@ class Base(DeclarativeBase):
 db = SQLAlchemy(model_class=Base)
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "b4e56ytnbry456yurtjet7i"
-app.config["SQLALCHEMY_DATABASE_URI"] = (
-    "sqlite:////home/alseczb/Documents/Code/biTorrent/asd.db"
-)
+app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///asd.db"
 db.init_app(app)
 
 
 class User(db.Model):
+    __tablename__ = "user"
+
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     username: Mapped[str] = mapped_column(String(30), unique=True, nullable=False)
-    password: Mapped[str] = mapped_column(String(32), nullable=False)
+    password: Mapped[str] = mapped_column(String(256), nullable=False)
+    magnets: Mapped[list["MagnetLink"]] = db.relationship(back_populates="uploader")
+
+
+class MagnetLink(db.Model):
+    __tablename__ = "magnet_link"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    magnet_uri: Mapped[str] = mapped_column(Text, nullable=False)
+    description: Mapped[str] = mapped_column(Text, default="")
+    file_size: Mapped[str] = mapped_column(String(20), default="Unknown")
+    uploader_id: Mapped[int] = mapped_column(
+        Integer, db.ForeignKey("user.id"), nullable=False
+    )
+    uploader: Mapped["User"] = db.relationship(back_populates="magnets")
+    download_count: Mapped[int] = mapped_column(Integer, default=0)
+    date_uploaded: Mapped[DateTime] = mapped_column(
+        DateTime, server_default=func.now()
+    )
 
 
 with app.app_context():
     db.create_all()
+
+
+def login_required():
+    user_id = session.get("user_id")
+    if not user_id:
+        flash("Please log in first.", "warning")
+        return None
+    return User.query.get(user_id)
 
 
 @app.route("/")
@@ -40,53 +67,129 @@ def home_page():
     return redirect(url_for("home"))
 
 
-@app.route("/account")
-def account():
-    user_id = session.get("user_id")
-    if not user_id:
-        return redirect(url_for("login"))
-    user = User.query.get(user_id)
-    return render_template("account.html", user=user)
-
-
 @app.route("/downloads")
 def download():
+    search = request.args.get("q", "").strip()
+    query = MagnetLink.query.order_by(MagnetLink.date_uploaded.desc())
+    if search:
+        query = query.filter(
+            db.or_(
+                MagnetLink.title.ilike(f"%{search}%"),
+                MagnetLink.description.ilike(f"%{search}%"),
+            )
+        )
+    magnets = query.all()
+    return render_template("downloads.html", magnets=magnets, title="Downloads", search=search)
+
+
+@app.route("/uploads", methods=["GET", "POST"])
+def upload():
+    user = login_required()
+    if user is None:
+        return redirect(url_for("login"))
+
+    form = MagnetForm()
+    if form.validate_on_submit():
+        magnet = MagnetLink(
+            title=form.title.data,
+            magnet_uri=form.magnet_uri.data,
+            description=form.description.data,
+            file_size=form.file_size.data or "Unknown",
+            uploader_id=user.id,
+        )
+        db.session.add(magnet)
+        db.session.commit()
+        flash("Magnet link shared!", "success")
+        return redirect(url_for("my_uploads"))
+
+    return render_template("upload.html", form=form, title="Share a Magnet")
+
+
+@app.route("/my-uploads")
+def my_uploads():
+    user = login_required()
+    if user is None:
+        return redirect(url_for("login"))
+    magnets = (
+        MagnetLink.query.filter_by(uploader_id=user.id)
+        .order_by(MagnetLink.date_uploaded.desc())
+        .all()
+    )
+    return render_template("my_uploads.html", magnets=magnets, title="My Uploads")
+
+
+@app.route("/magnet/<int:magnet_id>")
+def magnet_detail(magnet_id):
+    user = login_required()
+    if user is None:
+        return redirect(url_for("login"))
+    magnet = MagnetLink.query.get_or_404(magnet_id)
+    return render_template("magnet_detail.html", magnet=magnet)
+
+
+@app.route("/magnet/<int:magnet_id>/copy")
+def magnet_copy(magnet_id):
+    magnet = MagnetLink.query.get_or_404(magnet_id)
+    magnet.download_count += 1
+    db.session.commit()
+    return render_template("magnet_copy.html", magnet=magnet)
+
+
+@app.route("/magnet/<int:magnet_id>/delete", methods=["POST"])
+def magnet_delete(magnet_id):
+    user = login_required()
+    if user is None:
+        return redirect(url_for("login"))
+    magnet = MagnetLink.query.get_or_404(magnet_id)
+    if magnet.uploader_id != user.id:
+        flash("Not your magnet to delete.", "danger")
+        return redirect(url_for("my_uploads"))
+    db.session.delete(magnet)
+    db.session.commit()
+    flash("Magnet deleted.", "info")
+    return redirect(url_for("my_uploads"))
+
+
+# ── Account ──
+
+
+@app.route("/account")
+def account():
+    user = login_required()
+    if user is None:
+        return redirect(url_for("login"))
+    count = MagnetLink.query.filter_by(uploader_id=user.id).count()
+    total_downloads = (
+        db.session.query(func.sum(MagnetLink.download_count))
+        .filter(MagnetLink.uploader_id == user.id)
+        .scalar()
+        or 0
+    )
     return render_template(
-        "downloads_table.html", downloads=downloads, title="Downloads"
+        "account.html", user=user, magnet_count=count, total_downloads=total_downloads
     )
 
 
-@app.route("/uploads")
-def upload():
-    return render_template("uploads_table.html", uploads=uploads, title="Uploads")
+# ── Auth ──
 
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
     form = NewCourseForm()
-    if request.method == "POST":
-        if form.validate_on_submit():
-            user = User(
-                username=form.username.data,
-                password=form.password.data,
-            )
-            if User.query.filter_by(username=user.username).first():
-                flash(
-                    "Username already exists. Please choose a different one.", "danger"
-                )
-                return redirect(url_for("register"))
-            db.session.add(user)
-            db.session.commit()
-            session["user_id"] = user.id
-            flash("You are now registered!", "success")
-            return redirect(url_for("account"))
-    return render_template(
-        "register.html",
-        title="Register",
-        form=form,
-        username=form.username.data,
-        password=form.password.data,
-    )
+    if form.validate_on_submit():
+        if User.query.filter_by(username=form.username.data).first():
+            flash("Username already exists.", "danger")
+            return redirect(url_for("register"))
+        user = User(
+            username=form.username.data,
+            password=generate_password_hash(form.password.data),
+        )
+        db.session.add(user)
+        db.session.commit()
+        session["user_id"] = user.id
+        flash("Registered! Welcome aboard.", "success")
+        return redirect(url_for("account"))
+    return render_template("register.html", title="Register", form=form)
 
 
 @app.route("/login", methods=["GET", "POST"])
@@ -94,13 +197,21 @@ def login():
     if request.method == "POST":
         username = request.form["username"]
         password = request.form["password"]
-        user = User.query.filter_by(username=username, password=password).first()
-        if user:
+        user = User.query.filter_by(username=username).first()
+        if user and check_password_hash(user.password, password):
             session["user_id"] = user.id
+            flash("Logged in.", "success")
             return redirect(url_for("account"))
-        flash("Invalid login", "danger")
+        flash("Invalid username or password.", "danger")
     return render_template("login.html", title="Log In")
 
 
+@app.route("/logout")
+def logout():
+    session.pop("user_id", None)
+    flash("Logged out.", "info")
+    return redirect(url_for("home"))
+
+
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, host="0.0.0.0", port=5000)

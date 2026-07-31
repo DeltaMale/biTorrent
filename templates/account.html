@@ -1,8 +1,18 @@
 {% extends "index.html" %}
 
 {% block content %}
-
-<h1 style="margin-top: 30px;">Your Account:</h1>
-<h3>Username: {{ user.username }}</h3>
-<h3>Password: {{ user.password }}</h3>
+<div class="row mt-4">
+    <div class="col-md-8 mx-auto">
+        <h1 class="mb-3">Your Account</h1>
+        <div class="card" style="background: rgba(255,255,255,0.1); border: none;">
+            <div class="card-body">
+                <h3>{{ user.username }}</h3>
+                <table class="table" style="color: white;">
+                    <tr><th style="width: 200px;">Magnets Shared</th><td>{{ magnet_count }}</td></tr>
+                    <tr><th>Total Downloads</th><td>{{ total_downloads }}</td></tr>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock content %}
