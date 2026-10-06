@@ -1,28 +1,24 @@
 {% extends "index.html" %}
 
 {% block content %}
-<h2 class="my-4">Share a Magnet Link</h2>
+<h2 class="my-4">Create a Magnet Link</h2>
 
-<form action="" method="POST">
+<form action="" method="POST" enctype="multipart/form-data">
     {{ form.hidden_tag() }}
     <div class="row justify-content-center">
-        <div class="col-md-8">
+        <div class="col-md-4">
             <div class="form-group my-3">
                 {{ form.title.label(class="form-control-label") }}
                 {{ form.title(class="form-control form-control-lg", placeholder="e.g. Ubuntu 24.04 LTS") }}
             </div>
             <div class="form-group my-3">
-                {{ form.magnet_uri.label(class="form-control-label") }}
-                {{ form.magnet_uri(class="form-control", rows=3, placeholder="magnet:?xt=urn:btih:...") }}
-                <small class="text-muted">Paste the full magnet URI here</small>
+                {{ form.file.label(class="form-control-label") }}
+                {{ form.file(class="form-control") }}
+                <small class="text-muted">Choose any file to generate its magnet link</small>
             </div>
             <div class="form-group my-3">
                 {{ form.description.label(class="form-control-label") }}
                 {{ form.description(class="form-control", rows=2, placeholder="Optional description") }}
-            </div>
-            <div class="form-group my-3">
-                {{ form.file_size.label(class="form-control-label") }}
-                {{ form.file_size(class="form-control", placeholder="e.g. 5.7 GB") }}
             </div>
             <div class="form-group my-4">
                 {{ form.submit(class="btn btn-lg") }}

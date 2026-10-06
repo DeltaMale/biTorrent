@@ -1,4 +1,5 @@
 from flask_wtf import FlaskForm
+from flask_wtf.file import FileField, FileRequired
 from wtforms import StringField, SubmitField, PasswordField, TextAreaField
 from wtforms.validators import DataRequired, Length
 
@@ -15,9 +16,6 @@ class NewCourseForm(FlaskForm):
 
 class MagnetForm(FlaskForm):
     title = StringField("Title", validators=[DataRequired(), Length(max=200)])
-    magnet_uri = TextAreaField(
-        "Magnet Link", validators=[DataRequired(), Length(max=2000)]
-    )
+    file = FileField("File", validators=[FileRequired()])
     description = TextAreaField("Description (optional)", validators=[Length(max=500)])
-    file_size = StringField("File Size (optional)", validators=[Length(max=20)])
-    submit = SubmitField("Share Magnet Link")
+    submit = SubmitField("Create Magnet Link")

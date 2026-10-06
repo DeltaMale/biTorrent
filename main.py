@@ -1,9 +1,14 @@
+import os
+import tempfile
+
 from flask import Flask, redirect, url_for, render_template, request, flash, session, Response
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy import Integer, String, Text, DateTime, func
 from forms import NewCourseForm, MagnetForm
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
+from torf import Torrent
 
 
 class Base(DeclarativeBase):
@@ -53,7 +58,16 @@ def login_required():
     if not user_id:
         flash("Please log in first.", "warning")
         return None
-    return User.query.get(user_id)
+    return db.session.get(User, user_id)
+
+
+def format_file_size(size):
+    units = ("B", "KB", "MB", "GB", "TB")
+    value = float(size)
+    for unit in units:
+        if value < 1024 or unit == units[-1]:
+            return f"{value:.1f} {unit}" if unit != "B" else f"{int(value)} B"
+        value /= 1024
 
 
 @app.route("/")
@@ -82,7 +96,7 @@ def download():
     return render_template("downloads.html", magnets=magnets, title="Downloads", search=search)
 
 
-@app.route("/uploads", methods=["GET", "POST"])
+@app.route("/upload", methods=["GET", "POST"])
 def upload():
     user = login_required()
     if user is None:
@@ -90,15 +104,29 @@ def upload():
 
     form = MagnetForm()
     if form.validate_on_submit():
-        magnet = MagnetLink(
-            title=form.title.data,
-            magnet_uri=form.magnet_uri.data,
-            description=form.description.data,
-            file_size=form.file_size.data or "Unknown",
-            uploader_id=user.id,
-        )
-        db.session.add(magnet)
-        db.session.commit()
+        uploaded_file = form.file.data
+        filename = secure_filename(uploaded_file.filename or "uploaded-file")
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            source_path = os.path.join(temp_dir, filename)
+            uploaded_file.save(source_path)
+            try:
+                torrent = Torrent(source_path)
+                torrent.generate()
+                magnet_uri = str(torrent.magnet())
+            except Exception:
+                flash("The selected file could not be turned into a magnet link.", "danger")
+                return render_template("upload.html", form=form, title="Share a Magnet")
+
+            magnet = MagnetLink(
+                title=form.title.data,
+                magnet_uri=magnet_uri,
+                description=form.description.data,
+                file_size=format_file_size(os.path.getsize(source_path)),
+                uploader_id=user.id,
+            )
+            db.session.add(magnet)
+            db.session.commit()
         flash("Magnet link shared!", "success")
         return redirect(url_for("my_uploads"))
 
